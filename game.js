@@ -18,11 +18,13 @@ class FNAFGame {
 
         this.animatronics = [];
         this.cameras = [];
+        this.locations = [];
         this.gameStartTime = 0;
         this.gameWon = false;
         this.lastUpdateTime = Date.now();
 
         this.setupEventListeners();
+        this.initializeLocations();
         this.initializeCameras();
         this.animate();
     }
@@ -43,12 +45,29 @@ class FNAFGame {
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
     }
 
+    initializeLocations() {
+        // Create a map with multiple locations
+        this.locations = [
+            { id: 'kitchen', name: 'KITCHEN', x: 100, y: 100, width: 200, height: 180 },
+            { id: 'hallway_left', name: 'WEST HALL', x: 100, y: 300, width: 200, height: 180 },
+            { id: 'office', name: 'OFFICE', x: 400, y: 200, width: 280, height: 280 },
+            { id: 'hallway_right', name: 'EAST HALL', x: 800, y: 300, width: 200, height: 180 },
+            { id: 'stage', name: 'STAGE', x: 800, y: 100, width: 200, height: 180 },
+            { id: 'storage', name: 'STORAGE', x: 100, y: 500, width: 200, height: 180 },
+            { id: 'backroom', name: 'BACK ROOM', x: 400, y: 520, width: 200, height: 180 },
+            { id: 'camera_room', name: 'CAM ROOM', x: 700, y: 520, width: 200, height: 180 }
+        ];
+    }
+
     initializeCameras() {
         this.cameras = [
-            new Camera('MAIN OFFICE', 400, 150, 480, 420),
-            new Camera('WEST HALL', 0, 0, 640, 720),
-            new Camera('EAST HALL', 640, 0, 640, 720),
-            new Camera('KITCHEN', 0, 0, 1280, 720)
+            { name: 'STAGE', locationIds: ['stage'] },
+            { name: 'KITCHEN', locationIds: ['kitchen'] },
+            { name: 'WEST HALL', locationIds: ['hallway_left'] },
+            { name: 'EAST HALL', locationIds: ['hallway_right'] },
+            { name: 'STORAGE', locationIds: ['storage'] },
+            { name: 'BACK ROOM', locationIds: ['backroom'] },
+            { name: 'OFFICE ENTRANCE', locationIds: ['hallway_left', 'hallway_right', 'office'] }
         ];
     }
 
@@ -134,10 +153,10 @@ class FNAFGame {
 
     initializeAnimatronics() {
         this.animatronics = [
-            new Animatronic('Freddy', 900, 300, 1.0),
-            new Animatronic('Bonnie', 800, 400, 1.1),
-            new Animatronic('Chica', 1000, 350, 0.9),
-            new Animatronic('Foxy', 950, 250, 1.2)
+            new Animatronic('Freddy', this.locations[4], 1.0, this.locations),
+            new Animatronic('Bonnie', this.locations[3], 1.1, this.locations),
+            new Animatronic('Chica', this.locations[1], 0.9, this.locations),
+            new Animatronic('Foxy', this.locations[5], 1.2, this.locations)
         ];
     }
 
@@ -206,16 +225,17 @@ class FNAFGame {
         this.updatePower();
 
         for (let animatronic of this.animatronics) {
-            animatronic.update(this.canvas.width, this.canvas.height, this.night);
+            animatronic.update(this.night);
 
-            if (animatronic.isAttacking(!this.leftDoorClosed, !this.rightDoorClosed)) {
-                this.gameOverDefeat(animatronic.name + ' got you!');
-                return;
+            // Check if animatronic reached the office
+            if (animatronic.currentLocation.id === 'office') {
+                // Check if doors block them
+                if (!this.leftDoorClosed || !this.rightDoorClosed) {
+                    this.gameOverDefeat(animatronic.name + ' got you!');
+                    return;
+                }
             }
         }
-
-        const currentCamera = this.cameras[this.currentCameraIndex];
-        currentCamera.updateView(this.animatronics);
 
         this.updateUI();
     }
@@ -277,8 +297,12 @@ class FNAFGame {
         document.getElementById('powerDisplay').textContent = Math.ceil(this.power) + '%';
 
         let status = 'SAFE';
-        let animatronic_close = this.animatronics.some(a => a.x < 300);
-        if (animatronic_close) status = 'ALERT!';
+        for (let animatronic of this.animatronics) {
+            if (animatronic.currentLocation.id === 'hallway_left' || animatronic.currentLocation.id === 'hallway_right') {
+                status = 'ALERT!';
+                break;
+            }
+        }
         document.getElementById('statusDisplay').textContent = status;
 
         const leftDoorBtn = document.getElementById('leftDoorBtn');
@@ -314,8 +338,7 @@ class FNAFGame {
     }
 
     updateCameraDisplay() {
-        const camera = this.cameras[this.currentCameraIndex];
-        document.getElementById('cameraName').textContent = camera.name;
+        document.getElementById('cameraName').textContent = this.cameras[this.currentCameraIndex].name;
         document.getElementById('cameraNumber').textContent = (this.currentCameraIndex + 1) + '/' + this.cameras.length;
 
         let warning = '';
@@ -341,7 +364,7 @@ class FNAFGame {
     }
 
     renderOfficeView() {
-        // Draw floor
+        // Draw office background
         this.ctx.fillStyle = '#2a2a2a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -381,42 +404,30 @@ class FNAFGame {
         // Draw right door
         this.drawDoor(this.canvas.width - 100, this.canvas.height / 2 - 80, 80, 160, this.rightDoorClosed, 'RIGHT');
 
-        // Draw camera viewport hint
+        // Draw info text
         this.ctx.fillStyle = '#0f0';
         this.ctx.font = '14px Arial';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText('PRESS SPACE FOR CAMERAS', this.canvas.width / 2, 40);
-
-        // Draw animatronics in office (if they got in)
-        for (let animatronic of this.animatronics) {
-            if (animatronic.x < 150 || animatronic.x > this.canvas.width - 150) {
-                this.drawAnimatronicInOffice(animatronic);
-            }
-        }
+        this.ctx.fillText('PRESS SPACE FOR MAP CAMERAS', this.canvas.width / 2, 40);
     }
 
     drawDoor(x, y, width, height, closed, side) {
         if (closed) {
-            // Closed door - solid metal look
             this.ctx.fillStyle = '#444';
             this.ctx.fillRect(x, y, width, height);
             
-            // Door frame
             this.ctx.strokeStyle = '#666';
             this.ctx.lineWidth = 3;
             this.ctx.strokeRect(x, y, width, height);
             
-            // Closed indicator
             this.ctx.fillStyle = '#f00';
             this.ctx.font = 'bold 12px Arial';
             this.ctx.textAlign = 'center';
             this.ctx.fillText('LOCKED', x + width / 2, y + height / 2 + 5);
         } else {
-            // Open door - transparent/open look
             this.ctx.fillStyle = '#1a1a1a';
             this.ctx.fillRect(x, y, width, height);
             
-            // Open door indicator
             this.ctx.strokeStyle = '#0a0';
             this.ctx.lineWidth = 2;
             this.ctx.strokeRect(x, y, width, height);
@@ -427,89 +438,109 @@ class FNAFGame {
             this.ctx.fillText('OPEN', x + width / 2, y + height / 2 + 5);
         }
 
-        // Side label
         this.ctx.fillStyle = '#fff';
         this.ctx.font = '10px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.fillText(side, x + width / 2, y - 10);
     }
 
-    drawAnimatronicInOffice(animatronic) {
-        const x = animatronic.x;
-        const y = animatronic.y;
-
-        // Body
-        this.ctx.fillStyle = animatronic.color;
-        this.ctx.beginPath();
-        this.ctx.ellipse(x, y + 20, 30, 40, 0, 0, Math.PI * 2);
-        this.ctx.fill();
-
-        // Head
-        this.ctx.beginPath();
-        this.ctx.arc(x, y - 30, 25, 0, Math.PI * 2);
-        this.ctx.fill();
-
-        // Eyes
-        this.ctx.fillStyle = '#fff';
-        this.ctx.beginPath();
-        this.ctx.arc(x - 10, y - 35, 6, 0, Math.PI * 2);
-        this.ctx.fill();
-        this.ctx.beginPath();
-        this.ctx.arc(x + 10, y - 35, 6, 0, Math.PI * 2);
-        this.ctx.fill();
-
-        // Pupils
-        this.ctx.fillStyle = '#000';
-        this.ctx.beginPath();
-        this.ctx.arc(x - 10, y - 35, 3, 0, Math.PI * 2);
-        this.ctx.fill();
-        this.ctx.beginPath();
-        this.ctx.arc(x + 10, y - 35, 3, 0, Math.PI * 2);
-        this.ctx.fill();
-
-        // Name label
-        this.ctx.fillStyle = '#fff';
-        this.ctx.font = 'bold 12px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(animatronic.name, x, y + 70);
-    }
-
     renderCameraView() {
         const viewport = document.getElementById('cameraViewport');
         viewport.innerHTML = '';
 
-        const grid = document.createElement('div');
-        grid.className = 'camera-grid';
-        viewport.appendChild(grid);
+        // Draw map background
+        const mapCanvas = document.createElement('canvas');
+        mapCanvas.width = viewport.clientWidth;
+        mapCanvas.height = viewport.clientHeight;
+        const mapCtx = mapCanvas.getContext('2d');
 
-        const camera = this.cameras[this.currentCameraIndex];
+        // Draw background
+        mapCtx.fillStyle = '#001a00';
+        mapCtx.fillRect(0, 0, mapCanvas.width, mapCanvas.height);
 
-        for (let animatronic of camera.animatronicsInView) {
-            const screenCoords = camera.getScreenCoordinates(
-                animatronic.x,
-                animatronic.y,
-                viewport.clientWidth,
-                viewport.clientHeight
-            );
-
-            const entity = document.createElement('div');
-            entity.className = 'camera-entity';
-            entity.style.left = screenCoords.x + 'px';
-            entity.style.top = screenCoords.y + 'px';
-
-            const sprite = document.createElement('div');
-            sprite.className = 'camera-entity-sprite';
-            sprite.style.backgroundColor = animatronic.color;
-            sprite.textContent = animatronic.name.substring(0, 1);
-
-            const label = document.createElement('div');
-            label.className = 'camera-entity-label';
-            label.textContent = animatronic.name;
-
-            entity.appendChild(sprite);
-            entity.appendChild(label);
-            viewport.appendChild(entity);
+        // Draw grid
+        mapCtx.strokeStyle = 'rgba(0, 255, 0, 0.2)';
+        mapCtx.lineWidth = 1;
+        for (let i = 0; i < mapCanvas.width; i += 40) {
+            mapCtx.beginPath();
+            mapCtx.moveTo(i, 0);
+            mapCtx.lineTo(i, mapCanvas.height);
+            mapCtx.stroke();
         }
+        for (let i = 0; i < mapCanvas.height; i += 40) {
+            mapCtx.beginPath();
+            mapCtx.moveTo(0, i);
+            mapCtx.lineTo(mapCanvas.width, i);
+            mapCtx.stroke();
+        }
+
+        // Draw scale (normalize to fit in viewport)
+        const scaleX = mapCanvas.width / 1100;
+        const scaleY = mapCanvas.height / 700;
+
+        // Draw locations
+        for (let location of this.locations) {
+            const x = location.x * scaleX;
+            const y = location.y * scaleY;
+            const w = location.width * scaleX;
+            const h = location.height * scaleY;
+
+            mapCtx.fillStyle = '#1a3a1a';
+            mapCtx.fillRect(x, y, w, h);
+            mapCtx.strokeStyle = '#0f0';
+            mapCtx.lineWidth = 2;
+            mapCtx.strokeRect(x, y, w, h);
+
+            // Location name
+            mapCtx.fillStyle = '#0f0';
+            mapCtx.font = '12px Arial';
+            mapCtx.textAlign = 'center';
+            mapCtx.fillText(location.name, x + w / 2, y + h / 2 + 5);
+        }
+
+        // Draw animatronics on map
+        for (let animatronic of this.animatronics) {
+            const loc = animatronic.currentLocation;
+            const x = (loc.x + loc.width / 2) * scaleX;
+            const y = (loc.y + loc.height / 2) * scaleY;
+
+            // Draw animatronic as colored circle
+            mapCtx.fillStyle = animatronic.color;
+            mapCtx.beginPath();
+            mapCtx.arc(x, y, 8, 0, Math.PI * 2);
+            mapCtx.fill();
+
+            // Draw outline
+            mapCtx.strokeStyle = '#fff';
+            mapCtx.lineWidth = 2;
+            mapCtx.beginPath();
+            mapCtx.arc(x, y, 8, 0, Math.PI * 2);
+            mapCtx.stroke();
+
+            // Name label
+            mapCtx.fillStyle = animatronic.color;
+            mapCtx.font = 'bold 10px Arial';
+            mapCtx.textAlign = 'center';
+            mapCtx.fillText(animatronic.name, x, y + 20);
+        }
+
+        // Convert canvas to image and add to viewport
+        const imgData = mapCanvas.toDataURL();
+        const img = new Image();
+        img.onload = function() {
+            viewport.appendChild(img);
+        };
+        img.src = imgData;
+
+        // Add camera info
+        const info = document.createElement('div');
+        info.style.position = 'absolute';
+        info.style.top = '10px';
+        info.style.left = '10px';
+        info.style.color = '#0f0';
+        info.style.fontSize = '12px';
+        info.textContent = 'Viewing entire facility map';
+        viewport.appendChild(info);
     }
 
     animate() {
