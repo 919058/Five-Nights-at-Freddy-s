@@ -7,9 +7,10 @@ class FNAFGame {
         this.night = 1;
         this.hour = 0;
         this.minute = 0;
+        this.second = 0;
         this.power = 100;
         this.maxPower = 100;
-        this.powerPerSecond = 0.1;
+        this.powerPerSecond = 0.05;
         this.leftDoorClosed = false;
         this.rightDoorClosed = false;
         this.cameraActive = false;
@@ -19,6 +20,7 @@ class FNAFGame {
         this.cameras = [];
         this.gameStartTime = 0;
         this.gameWon = false;
+        this.lastUpdateTime = Date.now();
 
         this.setupEventListeners();
         this.initializeCameras();
@@ -102,10 +104,12 @@ class FNAFGame {
         this.power = this.maxPower;
         this.hour = 0;
         this.minute = 0;
+        this.second = 0;
         this.leftDoorClosed = false;
         this.rightDoorClosed = false;
         this.cameraActive = false;
         this.gameStartTime = Date.now();
+        this.lastUpdateTime = Date.now();
         this.gameWon = false;
 
         this.initializeAnimatronics();
@@ -117,10 +121,12 @@ class FNAFGame {
         this.power = this.maxPower;
         this.hour = 0;
         this.minute = 0;
+        this.second = 0;
         this.leftDoorClosed = false;
         this.rightDoorClosed = false;
         this.cameraActive = false;
         this.gameStartTime = Date.now();
+        this.lastUpdateTime = Date.now();
 
         this.initializeAnimatronics();
         this.showScreen('playing');
@@ -177,12 +183,22 @@ class FNAFGame {
     update() {
         if (this.currentScreen !== 'playing') return;
 
-        const elapsed = (Date.now() - this.gameStartTime) / 1000;
-        const totalMinutes = Math.floor(elapsed / 10);
-        this.hour = Math.floor(totalMinutes / 60) + 12;
-        this.minute = totalMinutes % 60;
+        const now = Date.now();
+        const deltaTime = (now - this.lastUpdateTime) / 1000;
+        this.lastUpdateTime = now;
 
-        if (totalMinutes >= 360) {
+        this.second += deltaTime;
+        if (this.second >= 1) {
+            this.minute += Math.floor(this.second);
+            this.second %= 1;
+        }
+
+        if (this.minute >= 60) {
+            this.hour += Math.floor(this.minute / 60);
+            this.minute %= 60;
+        }
+
+        if (this.hour >= 6) {
             this.nightComplete();
             return;
         }
@@ -207,11 +223,11 @@ class FNAFGame {
     updatePower() {
         let drain = this.powerPerSecond;
 
-        if (this.leftDoorClosed) drain += 0.3;
-        if (this.rightDoorClosed) drain += 0.3;
-        if (this.cameraActive) drain += 0.2;
+        if (this.leftDoorClosed) drain += 0.2;
+        if (this.rightDoorClosed) drain += 0.2;
+        if (this.cameraActive) drain += 0.1;
 
-        this.power = Math.max(0, this.power - drain / 10);
+        this.power = Math.max(0, this.power - drain);
 
         if (this.power <= 0) {
             this.gameOverDefeat('Power depleted! Animatronics entered the office!');
@@ -250,14 +266,14 @@ class FNAFGame {
         }
 
         stats.innerHTML = '<p>Night Survived: ' + this.night + '/5</p>' +
-            '<p>Time: ' + (this.hour % 12 || 12) + ':' + String(this.minute).padStart(2, '0') + ' ' + (this.hour >= 12 ? 'PM' : 'AM') + '</p>' +
+            '<p>Time: ' + (this.hour % 12 || 12) + ':' + String(Math.floor(this.minute)).padStart(2, '0') + ':' + String(Math.floor(this.second)).padStart(2, '0') + '</p>' +
             '<p>Final Power: ' + Math.round(this.power) + '%</p>';
     }
 
     updateUI() {
         document.getElementById('nightDisplay').textContent = this.night;
         document.getElementById('timeDisplay').textContent = 
-            (this.hour % 12 || 12) + ':' + String(this.minute).padStart(2, '0') + ' ' + (this.hour >= 12 ? 'PM' : 'AM');
+            (this.hour % 12 || 12) + ':' + String(Math.floor(this.minute)).padStart(2, '0') + ':' + String(Math.floor(this.second)).padStart(2, '0');
         document.getElementById('powerDisplay').textContent = Math.ceil(this.power) + '%';
 
         let status = 'SAFE';
@@ -325,23 +341,137 @@ class FNAFGame {
     }
 
     renderOfficeView() {
+        // Draw floor
         this.ctx.fillStyle = '#2a2a2a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        this.ctx.fillStyle = '#1a1a1a';
-        this.ctx.fillRect(0, 0, 100, this.canvas.height);
-        this.ctx.fillRect(this.canvas.width - 100, 0, 100, this.canvas.height);
+        // Draw desk
+        this.ctx.fillStyle = '#3a3a2a';
+        this.ctx.fillRect(this.canvas.width / 2 - 250, this.canvas.height - 200, 500, 200);
 
-        this.ctx.fillStyle = '#444';
-        this.ctx.fillRect(this.canvas.width / 2 - 200, this.canvas.height - 200, 400, 200);
+        // Draw monitor screen
+        this.ctx.fillStyle = '#0a0a0a';
+        this.ctx.fillRect(this.canvas.width / 2 - 180, this.canvas.height - 160, 360, 120);
+        
+        // Monitor glow
+        this.ctx.strokeStyle = '#0f0';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(this.canvas.width / 2 - 180, this.canvas.height - 160, 360, 120);
 
-        this.ctx.fillStyle = '#111';
-        this.ctx.fillRect(this.canvas.width / 2 - 150, this.canvas.height - 150, 300, 100);
-
+        // Draw timer on monitor
         this.ctx.fillStyle = '#0f0';
-        this.ctx.font = '16px Arial';
+        this.ctx.font = 'bold 40px Courier New';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText('> PRESS SPACE FOR CAMERAS <', this.canvas.width / 2, this.canvas.height - 70);
+        this.ctx.fillText(
+            (this.hour % 12 || 12) + ':' + String(Math.floor(this.minute)).padStart(2, '0') + ':' + String(Math.floor(this.second)).padStart(2, '0'),
+            this.canvas.width / 2,
+            this.canvas.height - 90
+        );
+
+        // Draw left wall (left door area)
+        this.ctx.fillStyle = '#1a1a1a';
+        this.ctx.fillRect(0, 0, 120, this.canvas.height);
+
+        // Draw left door
+        this.drawDoor(20, this.canvas.height / 2 - 80, 80, 160, this.leftDoorClosed, 'LEFT');
+
+        // Draw right wall (right door area)
+        this.ctx.fillRect(this.canvas.width - 120, 0, 120, this.canvas.height);
+
+        // Draw right door
+        this.drawDoor(this.canvas.width - 100, this.canvas.height / 2 - 80, 80, 160, this.rightDoorClosed, 'RIGHT');
+
+        // Draw camera viewport hint
+        this.ctx.fillStyle = '#0f0';
+        this.ctx.font = '14px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('PRESS SPACE FOR CAMERAS', this.canvas.width / 2, 40);
+
+        // Draw animatronics in office (if they got in)
+        for (let animatronic of this.animatronics) {
+            if (animatronic.x < 150 || animatronic.x > this.canvas.width - 150) {
+                this.drawAnimatronicInOffice(animatronic);
+            }
+        }
+    }
+
+    drawDoor(x, y, width, height, closed, side) {
+        if (closed) {
+            // Closed door - solid metal look
+            this.ctx.fillStyle = '#444';
+            this.ctx.fillRect(x, y, width, height);
+            
+            // Door frame
+            this.ctx.strokeStyle = '#666';
+            this.ctx.lineWidth = 3;
+            this.ctx.strokeRect(x, y, width, height);
+            
+            // Closed indicator
+            this.ctx.fillStyle = '#f00';
+            this.ctx.font = 'bold 12px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('LOCKED', x + width / 2, y + height / 2 + 5);
+        } else {
+            // Open door - transparent/open look
+            this.ctx.fillStyle = '#1a1a1a';
+            this.ctx.fillRect(x, y, width, height);
+            
+            // Open door indicator
+            this.ctx.strokeStyle = '#0a0';
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(x, y, width, height);
+            
+            this.ctx.fillStyle = '#0a0';
+            this.ctx.font = 'bold 12px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('OPEN', x + width / 2, y + height / 2 + 5);
+        }
+
+        // Side label
+        this.ctx.fillStyle = '#fff';
+        this.ctx.font = '10px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(side, x + width / 2, y - 10);
+    }
+
+    drawAnimatronicInOffice(animatronic) {
+        const x = animatronic.x;
+        const y = animatronic.y;
+
+        // Body
+        this.ctx.fillStyle = animatronic.color;
+        this.ctx.beginPath();
+        this.ctx.ellipse(x, y + 20, 30, 40, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Head
+        this.ctx.beginPath();
+        this.ctx.arc(x, y - 30, 25, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Eyes
+        this.ctx.fillStyle = '#fff';
+        this.ctx.beginPath();
+        this.ctx.arc(x - 10, y - 35, 6, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(x + 10, y - 35, 6, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Pupils
+        this.ctx.fillStyle = '#000';
+        this.ctx.beginPath();
+        this.ctx.arc(x - 10, y - 35, 3, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(x + 10, y - 35, 3, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Name label
+        this.ctx.fillStyle = '#fff';
+        this.ctx.font = 'bold 12px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(animatronic.name, x, y + 70);
     }
 
     renderCameraView() {
