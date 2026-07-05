@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Five Nights at Freddy's</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Main Game Screen -->
+        <div class="game-screen" id="gameScreen">
+            <canvas id="gameCanvas" width="1280" height="720"></canvas>
+            
+            <!-- Office View UI -->
+            <div id="officeUI" class="office-ui">
+                <div class="monitor-left">
+                    <div class="door-status" id="leftDoorStatus">
+                        <div class="door-label">LEFT DOOR</div>
+                        <div class="door-state" id="leftDoorState">OPEN</div>
+                        <button id="leftDoorBtn" class="door-btn">CLOSE (D)</button>
+                    </div>
+                </div>
+
+                <div class="center-hud">
+                    <div class="time-display">
+                        <span id="timeDisplay">12:00 AM</span>
+                    </div>
+                    <div class="info-bar">
+                        <div class="info-item">
+                            <span class="label">NIGHT</span>
+                            <span id="nightDisplay" class="value">1</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">POWER</span>
+                            <span id="powerDisplay" class="value">100%</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">STATUS</span>
+                            <span id="statusDisplay" class="value">READY</span>
+                        </div>
+                    </div>
+                    <div class="instruction">PRESS SPACE FOR CAMERAS</div>
+                </div>
+
+                <div class="monitor-right">
+                    <div class="door-status" id="rightDoorStatus">
+                        <div class="door-label">RIGHT DOOR</div>
+                        <div class="door-state" id="rightDoorState">OPEN</div>
+                        <button id="rightDoorBtn" class="door-btn">CLOSE (K)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Camera View UI -->
+            <div id="cameraUI" class="camera-ui hidden">
+                <div class="camera-header">
+                    <div class="camera-name" id="cameraName">MAIN OFFICE</div>
+                    <div class="camera-controls">
+                        <span id="cameraNumber">1/4</span>
+                    </div>
+                </div>
+                <div class="camera-viewport" id="cameraViewport"></div>
+                <div class="camera-footer">
+                    <div class="camera-info">↑/↓ NAVIGATE | SPACE EXIT CAMERAS</div>
+                    <div class="power-warning" id="powerWarning"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Menu -->
+        <div id="menuScreen" class="menu-screen">
+            <div class="menu-content">
+                <h1 class="game-title">FIVE NIGHTS<br>AT FREDDY'S</h1>
+                <div class="menu-buttons">
+                    <button id="startBtn" class="menu-btn">NEW GAME</button>
+                    <button id="instructionsBtn" class="menu-btn">HOW TO PLAY</button>
+                    <button id="creditsBtn" class="menu-btn">CREDITS</button>
+                </div>
+            </div>
+            <div class="menu-decoration">🎪 🎮 🎭 🎪</div>
+        </div>
+
+        <!-- Instructions Screen -->
+        <div id="instructionsScreen" class="modal hidden">
+            <div class="modal-content">
+                <h2>HOW TO PLAY</h2>
+                <div class="instructions-grid">
+                    <div class="instruction-section">
+                        <h3>OBJECTIVE</h3>
+                        <p>Survive from 12:00 AM to 6:00 AM for 5 nights in a row at Freddy Fazbear's Pizza!</p>
+                    </div>
+                    <div class="instruction-section">
+                        <h3>POWER & RESOURCES</h3>
+                        <ul>
+                            <li>Start with 100% power each night</li>
+                            <li>Power decreases naturally</li>
+                            <li>Closing doors uses power</li>
+                            <li>When power hits 0%, it's game over</li>
+                        </ul>
+                    </div>
+                    <div class="instruction-section">
+                        <h3>CONTROLS</h3>
+                        <ul>
+                            <li><strong>SPACE</strong> - Toggle Camera View</li>
+                            <li><strong>D</strong> - Close Left Door</li>
+                            <li><strong>A</strong> - Open Left Door</li>
+                            <li><strong>K</strong> - Close Right Door</li>
+                            <li><strong>L</strong> - Open Right Door</li>
+                            <li><strong>↑/↓</strong> - Switch Cameras (in camera view)</li>
+                        </ul>
+                    </div>
+                    <div class="instruction-section">
+                        <h3>ANIMATRONICS</h3>
+                        <p>Four animatronics patrol the pizzeria:</p>
+                        <ul>
+                            <li><strong>Freddy</strong> - Most dangerous</li>
+                            <li><strong>Bonnie</strong> - Aggressive</li>
+                            <li><strong>Chica</strong> - Moderate threat</li>
+                            <li><strong>Foxy</strong> - Unpredictable</li>
+                        </ul>
+                    </div>
+                    <div class="instruction-section">
+                        <h3>STRATEGY</h3>
+                        <ul>
+                            <li>Use cameras to track animatronics</li>
+                            <li>Close doors only when necessary</li>
+                            <li>Each night gets progressively harder</li>
+                            <li>Manage power carefully - don't waste it early</li>
+                            <li>Listen for sounds indicating proximity</li>
+                        </ul>
+                    </div>
+                </div>
+                <button id="closeInstructionsBtn" class="menu-btn">BACK TO MENU</button>
+            </div>
+        </div>
+
+        <!-- Credits Screen -->
+        <div id="creditsScreen" class="modal hidden">
+            <div class="modal-content">
+                <h2>CREDITS</h2>
+                <div class="credits-text">
+                    <p><strong>Five Nights at Freddy's</strong></p>
+                    <p>Original Concept & Design by Scott Cawthon</p>
+                    <br>
+                    <p><strong>This Web Game Implementation</strong></p>
+                    <p>Developed with HTML5 Canvas & JavaScript</p>
+                    <br>
+                    <p>This is a fan-made educational game based on the original Five Nights at Freddy's franchise.</p>
+                    <br>
+                    <p><em>© Scott Cawthon - All Rights Reserved</em></p>
+                </div>
+                <button id="closeCreditsBtn" class="menu-btn">BACK TO MENU</button>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" class="modal hidden">
+            <div class="modal-content game-over">
+                <h2 id="gameOverTitle">GAME OVER</h2>
+                <p id="gameOverMessage"></p>
+                <div id="gameStats" class="game-stats"></div>
+                <div class="modal-buttons">
+                    <button id="retryBtn" class="menu-btn">TRY AGAIN</button>
+                    <button id="mainMenuBtn" class="menu-btn">MAIN MENU</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Night Complete Screen -->
+        <div id="nightCompleteScreen" class="modal hidden">
+            <div class="modal-content night-complete">
+                <h2>NIGHT COMPLETE!</h2>
+                <p id="nightCompleteMessage"></p>
+                <button id="nextNightBtn" class="menu-btn">NEXT NIGHT</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="animatronics.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
